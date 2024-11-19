@@ -7,27 +7,43 @@ import os
 import requests
 from docx.shared import RGBColor  # Add this import
 
-
-def create_formatted_doc(title, content, action_items=None):
+def create_formatted_doc(title, content):
     doc = Document()
-    # Set font to Aptos Narrow (assuming it's installed)
     style = doc.styles['Normal']
     style.font.name = 'Aptos Narrow'
     
-    # Add title
-    title_heading = doc.add_heading(title, level=1)
-    title_heading.style.font.color.rgb = RGBColor(0, 51, 102)  # Dark blue
+    # Split content into lines
+    lines = content.split('\n')
+    current_level = 0
     
-    # Add action items if present
-    if action_items and len(action_items) > 0:
-        doc.add_heading('Action Items', level=2).style.font.color.rgb = RGBColor(0, 51, 102)
-        for item in action_items:
-            doc.add_paragraph(item, style='List Bullet')
-        doc.add_paragraph()  # Add spacing
-    
-    # Add main content
-    # Since content is now a string, let's add it directly
-    doc.add_paragraph(content)
+    for line in lines:
+        # Skip empty lines
+        if not line.strip():
+            continue
+            
+        # Determine heading level
+        if line.startswith('####'):
+            heading = line.replace('####', '').strip()
+            h = doc.add_heading(heading, level=4)
+            h.style.font.color.rgb = RGBColor(0, 51, 102)
+        elif line.startswith('###'):
+            heading = line.replace('###', '').strip()
+            h = doc.add_heading(heading, level=3)
+            h.style.font.color.rgb = RGBColor(0, 51, 102)
+        elif line.startswith('##'):
+            heading = line.replace('##', '').strip()
+            h = doc.add_heading(heading, level=2)
+            h.style.font.color.rgb = RGBColor(0, 51, 102)
+        elif line.startswith('#'):
+            heading = line.replace('#', '').strip()
+            h = doc.add_heading(heading, level=1)
+            h.style.font.color.rgb = RGBColor(0, 51, 102)
+        elif line.startswith('-'):
+            # Handle bullet points
+            doc.add_paragraph(line.strip(), style='List Bullet')
+        else:
+            # Regular paragraph
+            doc.add_paragraph(line.strip())
     
     return doc
 
@@ -37,11 +53,18 @@ def process_text(text, detail_level, api_key):
         "Content-Type": "application/json"
     }
     
-    prompt = f"""Please analyze these meeting notes and organize them with the following:
-    1. Extract any action items and their owners (if present)
-    2. Create a clear structure with appropriate headings (H2-H4)
-    3. Provide a {detail_level} level of detail
-    4. Ensure the content is clear and actionable
+    prompt = f"""Please analyze these meeting notes and organize them with the following structure:
+    # Meeting Title
+    ## Meeting Notes Summary
+    ### Attendees (if present)
+    ### Key Points Discussed
+    #### [Specific Topics]
+    
+    Include:
+    - Action items and their owners (if present)
+    - Clear structure with appropriate headings
+    - {detail_level} level of detail
+    - Bullet points for key items
     
     Meeting Notes:
     {text}"""
@@ -53,11 +76,11 @@ def process_text(text, detail_level, api_key):
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "You are a professional meeting notes organizer. Provide clear, well-structured meeting notes with appropriate headings and action items."},
+                    {"role": "system", "content": "You are a professional meeting notes organizer. Format the notes using markdown headings (# for H1, ## for H2, etc.) and bullet points (-) for lists."},
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.7,
-                "max_tokens": 1000  # Adjusted for longer meeting notes
+                "max_tokens": 1000
             }
         )
         

@@ -18,36 +18,67 @@ def create_formatted_doc(title, content):
     lines = content.split('\n')
     
     for line in lines:
-        # Skip empty lines
         if not line.strip():
             continue
             
         line = line.strip()
         
-        # Handle headers
-        if line.startswith('# '):
-            heading = line.replace('# ', '').strip()
-            h = doc.add_heading(heading, level=1)
+        # Handle Meeting Title
+        if line.startswith('Meeting Title:'):
+            h = doc.add_heading(line, level=1)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line.startswith('## '):
-            heading = line.replace('## ', '').strip()
-            h = doc.add_heading(heading, level=2)
+        
+        # Handle main sections (Meeting Notes Summary, Attendees, Key Points Discussed)
+        elif line in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
+            h = doc.add_heading(line, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line.startswith('### '):
-            heading = line.replace('### ', '').strip()
-            h = doc.add_heading(heading, level=3)
-            h.style.font.color.rgb = RGBColor(0, 51, 102)
-        # Handle bullet points
-        elif line.startswith('• '):
-            # Remove bullet point and handle sub-bullets
-            text = line.replace('• ', '').strip()
-            indent_level = line.count('\t')  # Count tabs for sub-bullets
-            p = doc.add_paragraph(text, style='List Bullet')
-            if indent_level > 0:
-                p.paragraph_format.left_indent = Pt(indent_level * 18)
-        # Regular paragraph
+        
+        # Handle bullet points with bold sections
+        elif line.startswith('•'):
+            text = line.replace('•', '').strip()
+            p = doc.add_paragraph()
+            
+            # Handle bold text within bullet points
+            if '**' in text:
+                parts = text.split('**')
+                for i, part in enumerate(parts):
+                    run = p.add_run(part)
+                    if i % 2 == 1:  # Odd indices are bold
+                        run.bold = True
+            else:
+                p.add_run(text)
+            
+            # Apply bullet style
+            p.style = 'List Bullet'
+            
+        # Handle sub-points with dashes
+        elif line.startswith('-'):
+            text = line.replace('-', '').strip()
+            p = doc.add_paragraph()
+            p.style = 'List Bullet'
+            p.paragraph_format.left_indent = Pt(36)  # Indent sub-points
+            
+            # Handle bold text within sub-points
+            if '**' in text:
+                parts = text.split('**')
+                for i, part in enumerate(parts):
+                    run = p.add_run(part)
+                    if i % 2 == 1:  # Odd indices are bold
+                        run.bold = True
+            else:
+                p.add_run(text)
+                
+        # Regular paragraphs
         else:
-            doc.add_paragraph(line)
+            p = doc.add_paragraph()
+            if '**' in line:
+                parts = line.split('**')
+                for i, part in enumerate(parts):
+                    run = p.add_run(part)
+                    if i % 2 == 1:  # Odd indices are bold
+                        run.bold = True
+            else:
+                p.add_run(line)
     
     return doc
 
@@ -58,25 +89,28 @@ def process_text(text, detail_level, api_key):
     }
     
     prompt = f"""Please analyze these meeting notes and organize them with the following structure:
-    # Meeting Title: [Title]
-    ## Meeting Notes Summary
-    [Brief overview of the meeting]
-    
-    ## Attendees
-    [List attendees with bullet points (•)]
-    
-    ## Key Points Discussed
-    [Main discussion points with bullet points (•)]
-    
-    Format Guidelines:
-    - Use # for main title
-    - Use ## for section headers
-    - Use • for bullet points
-    - Use tabs for sub-bullet points
-    - Provide {detail_level} level of detail
-    
-    Meeting Notes:
-    {text}"""
+        Meeting Title: [Clear, descriptive title]
+        
+        Meeting Notes Summary
+        [Concise overview paragraph]
+        
+        Attendees
+        • [Name]
+        • [Name]
+        
+        Key Points Discussed
+        • **[Main Topic]**
+        - Detailed point with **emphasized** keywords
+        - Additional details
+        
+        Guidelines:
+        - Use • for main bullet points
+        - Use - for sub-points
+        - Use **text** for emphasis and topic headers
+        - Provide {detail_level} level of detail
+        
+        Meeting Notes:
+        {text}"""
     
     try:
         response = requests.post(

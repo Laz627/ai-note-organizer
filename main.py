@@ -16,6 +16,7 @@ def create_formatted_doc(title, content):
     
     # Split content into lines
     lines = content.split('\n')
+    current_section = None
     
     for line in lines:
         if not line.strip():
@@ -36,32 +37,29 @@ def create_formatted_doc(title, content):
             section_text = line.replace('## ', '').strip()
             h = doc.add_heading(section_text, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        
-        # Handle main sections without ## (fallback)
         elif line in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
             h = doc.add_heading(line, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
         
-        # Handle H3 headers (marked with **)
-        elif line.startswith('**') and line.endswith('**'):
+        # Handle H3 headers (main topics)
+        elif line.startswith('**') and line.endswith('**') and current_section != 'h4':
             header_text = line.replace('**', '')
             h = doc.add_heading(header_text, level=3)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
+            current_section = 'h3'
+        
+        # Handle H4 headers (subtopics)
+        elif line.startswith('**') and line.endswith('**') and current_section == 'h3':
+            header_text = line.replace('**', '')
+            h = doc.add_heading(header_text, level=4)
+            h.style.font.color.rgb = RGBColor(0, 51, 102)
+            current_section = 'h4'
         
         # Handle bullet points
         elif line.startswith('•'):
             text = line.replace('•', '').strip()
             p = doc.add_paragraph(style='List Bullet')
-            
-            # Handle any bold text within bullet points
-            if '**' in text:
-                parts = text.split('**')
-                for i, part in enumerate(parts):
-                    run = p.add_run(part)
-                    if i % 2 == 1:  # Odd indices are bold
-                        run.bold = True
-            else:
-                p.add_run(text)
+            p.add_run(text)
         
         # Handle horizontal line
         elif line.startswith('_'):
@@ -70,6 +68,7 @@ def create_formatted_doc(title, content):
         # Regular paragraphs
         else:
             doc.add_paragraph(line)
+            current_section = None
     
     return doc
     
@@ -80,31 +79,38 @@ def process_text(text, detail_level, api_key):
     }
     
     prompt = f"""Please analyze these meeting notes and organize them with the following structure:
-        Meeting Title: [Clear, descriptive title]
+        # Meeting Title: [Clear, descriptive title]
     
-        Meeting Notes Summary
+        ## Meeting Notes Summary
         [Concise overview paragraph]
     
-        Attendees
+        ## Attendees
         • [Name]
         • [Name]
     
-        Key Points Discussed
+        ## Key Points Discussed
     
-        **[Main Topic]**
-        • [Subtopic]
-        • [Detail points]
+        **[Main Topic - H3]**
+        **[Subtopic - H4]**
+        • [Detail point]
+        • [Detail point]
     
-        **[Next Main Topic]**
-        • [Subtopic]
-        • [Detail points]
+        **[Next Subtopic - H4]**
+        • [Detail point]
+        • [Detail point]
+    
+        **[Next Main Topic - H3]**
+        **[Subtopic - H4]**
+        • [Detail point]
+        • [Detail point]
     
         __________________________________________________
     
         Guidelines:
-        - Use single line breaks between sections
-        - Main topics should be marked with ** (will be converted to headers)
-        - Use • for bullet points
+        - Use H3s for main categories (e.g., "Project Scope and Capacity")
+        - Use H4s for subtopics (e.g., "Team Capacity", "Expanding Scope")
+        - Use bullet points for details under H4s
+        - Maintain clear hierarchy: H3 > H4 > bullet points
         - Provide {detail_level} level of detail
         - End with underscore line
     

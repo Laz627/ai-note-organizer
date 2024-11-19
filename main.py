@@ -33,7 +33,10 @@ def create_formatted_doc(title, content, action_items=None):
     return doc
 
 def process_text(text, detail_level, api_key):
-    openai.api_key = api_key
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
     
     prompt = f"""Please analyze these meeting notes and organize them with the following:
     1. Extract any action items and their owners (if present)
@@ -45,11 +48,26 @@ def process_text(text, detail_level, api_key):
     {text}"""
     
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}]
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "You are a professional meeting notes organizer. Provide clear, well-structured meeting notes with appropriate headings and action items."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 1000  # Adjusted for longer meeting notes
+            }
         )
-        return response.choices[0].message.content
+        
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content']
+        else:
+            st.error(f"API Error: {response.status_code} - {response.text}")
+            return None
+            
     except Exception as e:
         st.error(f"Error processing text: {str(e)}")
         return None

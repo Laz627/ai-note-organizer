@@ -25,9 +25,10 @@ def create_formatted_doc(title, content):
             
         line = line.strip()
         
-        # Handle Meeting Title
-        if line.startswith('Meeting Title:'):
-            h = doc.add_heading(line, level=1)
+        # Handle Meeting Title (now checking for # prefix)
+        if line.startswith('# Meeting Title:'):
+            title_text = line.replace('# Meeting Title:', 'Meeting Title:').strip()
+            h = doc.add_heading(title_text, level=1)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
         
         # Handle main sections
@@ -35,7 +36,7 @@ def create_formatted_doc(title, content):
             h = doc.add_heading(line, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
         
-        # Handle H3 headers (marked with ** or regular text under Key Points Discussed)
+        # Handle H3 headers (marked with **)
         elif line.startswith('**') and line.endswith('**'):
             header_text = line.replace('**', '')
             h = doc.add_heading(header_text, level=3)

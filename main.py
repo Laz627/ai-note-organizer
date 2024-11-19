@@ -16,7 +16,6 @@ def create_formatted_doc(title, content):
     
     # Split content into lines
     lines = content.split('\n')
-    current_section = None
     
     for line in lines:
         if not line.strip():
@@ -33,33 +32,46 @@ def create_formatted_doc(title, content):
             h.style.font.color.rgb = RGBColor(0, 51, 102)
         
         # Handle H2 sections
-        elif line.startswith('## '):
+        elif line.startswith('## ') or line in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
             section_text = line.replace('## ', '').strip()
             h = doc.add_heading(section_text, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
-            h = doc.add_heading(line, level=2)
-            h.style.font.color.rgb = RGBColor(0, 51, 102)
         
-        # Handle H3 headers (main topics)
-        elif line.startswith('**') and line.endswith('**') and current_section != 'h4':
-            header_text = line.replace('**', '')
-            h = doc.add_heading(header_text, level=3)
-            h.style.font.color.rgb = RGBColor(0, 51, 102)
-            current_section = 'h3'
-        
-        # Handle H4 headers (subtopics)
-        elif line.startswith('**') and line.endswith('**') and current_section == 'h3':
-            header_text = line.replace('**', '')
-            h = doc.add_heading(header_text, level=4)
-            h.style.font.color.rgb = RGBColor(0, 51, 102)
-            current_section = 'h4'
+        # Handle H3 headers (main categories)
+        elif not line.startswith('•') and not line.startswith('-') and not line.startswith('_'):
+            if line not in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
+                h = doc.add_heading(line, level=3)
+                h.style.font.color.rgb = RGBColor(0, 51, 102)
         
         # Handle bullet points
         elif line.startswith('•'):
             text = line.replace('•', '').strip()
             p = doc.add_paragraph(style='List Bullet')
-            p.add_run(text)
+            
+            # Handle bold text within bullet points
+            if '**' in text:
+                parts = text.split('**')
+                for i, part in enumerate(parts):
+                    run = p.add_run(part)
+                    if i % 2 == 1:  # Odd indices are bold
+                        run.bold = True
+            else:
+                p.add_run(text)
+        
+        # Handle sub-bullet points
+        elif line.startswith('-'):
+            text = line.replace('-', '').strip()
+            p = doc.add_paragraph(style='List Bullet 2')
+            
+            # Handle bold text within sub-bullet points
+            if '**' in text:
+                parts = text.split('**')
+                for i, part in enumerate(parts):
+                    run = p.add_run(part)
+                    if i % 2 == 1:  # Odd indices are bold
+                        run.bold = True
+            else:
+                p.add_run(text)
         
         # Handle horizontal line
         elif line.startswith('_'):
@@ -68,7 +80,6 @@ def create_formatted_doc(title, content):
         # Regular paragraphs
         else:
             doc.add_paragraph(line)
-            current_section = None
     
     return doc
     
@@ -81,36 +92,34 @@ def process_text(text, detail_level, api_key):
     prompt = f"""Please analyze these meeting notes and organize them with the following structure:
         # Meeting Title: [Clear, descriptive title]
     
-        ## Meeting Notes Summary
+        Meeting Notes Summary
         [Concise overview paragraph]
     
-        ## Attendees
+        Attendees
         • [Name]
         • [Name]
     
-        ## Key Points Discussed
+        Key Points Discussed
     
-        **[Main Topic - H3]**
-        **[Subtopic - H4]**
-        • [Detail point]
-        • [Detail point]
+        [Main Category]
+        [Subcategory]
+        • [Main point]
+        • [Main point with sub-points:]
+        - [Sub-point]
+        - [Sub-point]
     
-        **[Next Subtopic - H4]**
-        • [Detail point]
-        • [Detail point]
-    
-        **[Next Main Topic - H3]**
-        **[Subtopic - H4]**
-        • [Detail point]
-        • [Detail point]
+        [Next Category]
+        [Subcategory]
+        • [Main point]
+        • [Main point]
     
         __________________________________________________
     
         Guidelines:
-        - Use H3s for main categories (e.g., "Project Scope and Capacity")
-        - Use H4s for subtopics (e.g., "Team Capacity", "Expanding Scope")
-        - Use bullet points for details under H4s
-        - Maintain clear hierarchy: H3 > H4 > bullet points
+        - Main categories and subcategories should be headers (no bullet points)
+        - Use • for main points
+        - Use - for sub-points
+        - Use **text** for emphasis
         - Provide {detail_level} level of detail
         - End with underscore line
     

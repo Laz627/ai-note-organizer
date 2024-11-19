@@ -19,15 +19,15 @@ def create_formatted_doc(title, content):
     
     for line in lines:
         if not line.strip():
-            if doc.paragraphs[-1].text.strip() != "":  # Only add space if previous line wasn't empty
-                doc.add_paragraph()  # Single space between sections
+            if doc.paragraphs and doc.paragraphs[-1].text.strip() != "":
+                doc.add_paragraph()
             continue
             
         line = line.strip()
         
         # Handle Meeting Title
-        if line.startswith('# Meeting Title:'):
-            h = doc.add_heading(line.replace('# Meeting Title:', 'Meeting Title:').strip(), level=1)
+        if line.startswith('Meeting Title:'):
+            h = doc.add_heading(line, level=1)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
         
         # Handle main sections
@@ -35,18 +35,18 @@ def create_formatted_doc(title, content):
             h = doc.add_heading(line, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
         
-        # Handle H3 headers (main topics under Key Points Discussed)
-        elif not line.startswith('•') and line not in ['---']:
-            if line.strip() and not line.startswith('#'):
-                h = doc.add_heading(line, level=3)
-                h.style.font.color.rgb = RGBColor(0, 51, 102)
+        # Handle H3 headers (marked with ** or regular text under Key Points Discussed)
+        elif line.startswith('**') and line.endswith('**'):
+            header_text = line.replace('**', '')
+            h = doc.add_heading(header_text, level=3)
+            h.style.font.color.rgb = RGBColor(0, 51, 102)
         
         # Handle bullet points
         elif line.startswith('•'):
             text = line.replace('•', '').strip()
-            p = doc.add_paragraph()
+            p = doc.add_paragraph(style='List Bullet')
             
-            # Handle bold text within bullet points
+            # Handle any bold text within bullet points
             if '**' in text:
                 parts = text.split('**')
                 for i, part in enumerate(parts):
@@ -55,11 +55,9 @@ def create_formatted_doc(title, content):
                         run.bold = True
             else:
                 p.add_run(text)
-            
-            p.style = 'List Bullet'
         
         # Handle horizontal line
-        elif line == '---':
+        elif line.startswith('_'):
             doc.add_paragraph('_' * 50)
         
         # Regular paragraphs
@@ -75,7 +73,7 @@ def process_text(text, detail_level, api_key):
     }
     
     prompt = f"""Please analyze these meeting notes and organize them with the following structure:
-        # Meeting Title: [Clear, descriptive title]
+        Meeting Title: [Clear, descriptive title]
     
         Meeting Notes Summary
         [Concise overview paragraph]
@@ -86,23 +84,22 @@ def process_text(text, detail_level, api_key):
     
         Key Points Discussed
     
-        [Main Topic]
+        **[Main Topic]**
         • [Subtopic]
         • [Detail points]
     
-        [Next Main Topic]
+        **[Next Main Topic]**
         • [Subtopic]
         • [Detail points]
     
-        ---
+        __________________________________________________
     
         Guidelines:
         - Use single line breaks between sections
-        - Main topics should be headers (not bullet points)
+        - Main topics should be marked with ** (will be converted to headers)
         - Use • for bullet points
-        - Use **text** for emphasis in bullet points
         - Provide {detail_level} level of detail
-        - End with horizontal line (---)
+        - End with underscore line
     
         Meeting Notes:
         {text}"""

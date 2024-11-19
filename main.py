@@ -70,10 +70,6 @@ def process_text(text, detail_level, api_key):
         Meeting Notes Summary
         [Concise overview paragraph]
         
-        Attendees
-        • [Name]
-        • [Name]
-        
         Key Points Discussed
         • **[Main Topic]**
         - Detailed point with **emphasized** keywords

@@ -16,55 +16,92 @@ def create_formatted_doc(title, content):
     
     # Split content into lines
     lines = content.split('\n')
-    in_bullet_list = False
     
     for line in lines:
         # Skip empty lines
         if not line.strip():
             continue
             
-        # Clean up the line
         line = line.strip()
         
-        # Handle headings
-        if line.startswith('Meeting Title:'):
-            h = doc.add_heading(line, level=1)
+        # Handle headers
+        if line.startswith('# '):
+            heading = line.replace('# ', '').strip()
+            h = doc.add_heading(heading, level=1)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line == 'Meeting Notes Summary':
-            h = doc.add_heading(line, level=2)
+        elif line.startswith('## '):
+            heading = line.replace('## ', '').strip()
+            h = doc.add_heading(heading, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line in ['Attendees', 'Key Points Discussed']:
-            h = doc.add_heading(line, level=2)
+        elif line.startswith('### '):
+            heading = line.replace('### ', '').strip()
+            h = doc.add_heading(heading, level=3)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line.startswith('•	-') or line.startswith('- '):
-            # Handle bullet points, removing redundant markers
-            clean_line = line.replace('•	-', '').replace('- ', '').strip()
-            
-            # Check for bold text
-            if '**' in clean_line:
-                p = doc.add_paragraph(style='List Bullet')
-                parts = clean_line.split('**')
-                for i, part in enumerate(parts):
-                    if i % 2 == 1:  # This is text that should be bold
-                        p.add_run(part).bold = True
-                    else:
-                        p.add_run(part)
-            else:
-                doc.add_paragraph(clean_line, style='List Bullet')
+        # Handle bullet points
+        elif line.startswith('• '):
+            # Remove bullet point and handle sub-bullets
+            text = line.replace('• ', '').strip()
+            indent_level = line.count('\t')  # Count tabs for sub-bullets
+            p = doc.add_paragraph(text, style='List Bullet')
+            if indent_level > 0:
+                p.paragraph_format.left_indent = Pt(indent_level * 18)
+        # Regular paragraph
         else:
-            # Regular paragraph
-            if '**' in line:
-                p = doc.add_paragraph()
-                parts = line.split('**')
-                for i, part in enumerate(parts):
-                    if i % 2 == 1:  # This is text that should be bold
-                        p.add_run(part).bold = True
-                    else:
-                        p.add_run(part)
-            else:
-                doc.add_paragraph(line)
+            doc.add_paragraph(line)
     
     return doc
+
+def process_text(text, detail_level, api_key):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    prompt = f"""Please analyze these meeting notes and organize them with the following structure:
+    # Meeting Title: [Title]
+    ## Meeting Notes Summary
+    [Brief overview of the meeting]
+    
+    ## Attendees
+    [List attendees with bullet points (•)]
+    
+    ## Key Points Discussed
+    [Main discussion points with bullet points (•)]
+    
+    Format Guidelines:
+    - Use # for main title
+    - Use ## for section headers
+    - Use • for bullet points
+    - Use tabs for sub-bullet points
+    - Provide {detail_level} level of detail
+    
+    Meeting Notes:
+    {text}"""
+    
+    try:
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "You are a professional meeting notes organizer. Format the notes using markdown headers (# for main title, ## for sections) and bullet points (•) for lists."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 1000
+            }
+        )
+        
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content']
+        else:
+            st.error(f"API Error: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        st.error(f"Error processing text: {str(e)}")
+        return None
 
 def process_text(text, detail_level, api_key):
     headers = {

@@ -25,13 +25,19 @@ def create_formatted_doc(title, content):
             
         line = line.strip()
         
-        # Handle Meeting Title (now checking for # prefix)
+        # Handle H1 (Meeting Title)
         if line.startswith('# Meeting Title:'):
             title_text = line.replace('# Meeting Title:', 'Meeting Title:').strip()
             h = doc.add_heading(title_text, level=1)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
         
-        # Handle main sections
+        # Handle H2 sections
+        elif line.startswith('## '):
+            section_text = line.replace('## ', '').strip()
+            h = doc.add_heading(section_text, level=2)
+            h.style.font.color.rgb = RGBColor(0, 51, 102)
+        
+        # Handle main sections without ## (fallback)
         elif line in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
             h = doc.add_heading(line, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)

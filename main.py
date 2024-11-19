@@ -5,6 +5,8 @@ import io
 from datetime import datetime
 import os
 import requests
+from docx.shared import RGBColor  # Add this import
+
 
 def create_formatted_doc(title, content, action_items=None):
     doc = Document()
@@ -24,12 +26,8 @@ def create_formatted_doc(title, content, action_items=None):
         doc.add_paragraph()  # Add spacing
     
     # Add main content
-    for section in content:
-        if 'heading' in section:
-            h = doc.add_heading(section['heading'], section['level'])
-            h.style.font.color.rgb = RGBColor(0, 51, 102)
-        if 'text' in section:
-            doc.add_paragraph(section['text'])
+    # Since content is now a string, let's add it directly
+    doc.add_paragraph(content)
     
     return doc
 

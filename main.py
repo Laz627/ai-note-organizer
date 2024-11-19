@@ -4,6 +4,7 @@ from docx import Document
 import io
 from datetime import datetime
 import os
+import requests
 
 def create_formatted_doc(title, content, action_items=None):
     doc = Document()

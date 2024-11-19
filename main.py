@@ -16,6 +16,7 @@ def create_formatted_doc(title, content):
     
     # Split content into lines
     lines = content.split('\n')
+    current_level = None
     
     for line in lines:
         if not line.strip():
@@ -32,54 +33,39 @@ def create_formatted_doc(title, content):
             h.style.font.color.rgb = RGBColor(0, 51, 102)
         
         # Handle H2 sections
-        elif line.startswith('## ') or line in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
-            section_text = line.replace('## ', '').strip()
-            h = doc.add_heading(section_text, level=2)
+        elif line in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
+            h = doc.add_heading(line, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
         
         # Handle H3 headers (main categories)
-        elif not line.startswith('•') and not line.startswith('-') and not line.startswith('_'):
-            if line not in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
-                h = doc.add_heading(line, level=3)
+        elif line.startswith('**') and line.endswith('**'):
+            if current_level != 'h4':  # This is an H3
+                header_text = line.replace('**', '')
+                h = doc.add_heading(header_text, level=3)
                 h.style.font.color.rgb = RGBColor(0, 51, 102)
+                current_level = 'h3'
+            else:  # This is an H4
+                header_text = line.replace('**', '')
+                h = doc.add_heading(header_text, level=4)
+                h.style.font.color.rgb = RGBColor(0, 51, 102)
+                current_level = 'h4'
         
         # Handle bullet points
         elif line.startswith('•'):
             text = line.replace('•', '').strip()
             p = doc.add_paragraph(style='List Bullet')
-            
-            # Handle bold text within bullet points
-            if '**' in text:
-                parts = text.split('**')
-                for i, part in enumerate(parts):
-                    run = p.add_run(part)
-                    if i % 2 == 1:  # Odd indices are bold
-                        run.bold = True
-            else:
-                p.add_run(text)
-        
-        # Handle sub-bullet points
-        elif line.startswith('-'):
-            text = line.replace('-', '').strip()
-            p = doc.add_paragraph(style='List Bullet 2')
-            
-            # Handle bold text within sub-bullet points
-            if '**' in text:
-                parts = text.split('**')
-                for i, part in enumerate(parts):
-                    run = p.add_run(part)
-                    if i % 2 == 1:  # Odd indices are bold
-                        run.bold = True
-            else:
-                p.add_run(text)
+            p.add_run(text)
+            current_level = None
         
         # Handle horizontal line
         elif line.startswith('_'):
             doc.add_paragraph('_' * 50)
+            current_level = None
         
         # Regular paragraphs
         else:
             doc.add_paragraph(line)
+            current_level = None
     
     return doc
     
@@ -101,25 +87,25 @@ def process_text(text, detail_level, api_key):
     
         Key Points Discussed
     
-        [Main Category]
-        [Subcategory]
-        • [Main point]
-        • [Main point with sub-points:]
-        - [Sub-point]
-        - [Sub-point]
+        **[Main Category - H3]**
+        **[Subcategory - H4]**
+        • [Detail point]
+        • [Detail point]
+        • [Detail point]
     
-        [Next Category]
-        [Subcategory]
-        • [Main point]
-        • [Main point]
+        **[Next Main Category - H3]**
+        **[Subcategory - H4]**
+        • [Detail point]
+        • [Detail point]
     
         __________________________________________________
     
         Guidelines:
-        - Main categories and subcategories should be headers (no bullet points)
-        - Use • for main points
-        - Use - for sub-points
-        - Use **text** for emphasis
+        - Use ** for both H3 and H4 headers (they will be formatted correctly based on hierarchy)
+        - H3s are main categories (e.g., "Resource Management", "SEO Strategy")
+        - H4s are subcategories under H3s (e.g., "Scope of Work", "Collaboration with Partners")
+        - Use • for bullet points
+        - No bold text emphasis needed in bullet points
         - Provide {detail_level} level of detail
         - End with underscore line
     

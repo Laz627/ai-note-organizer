@@ -16,34 +16,32 @@ def create_formatted_doc(title, content):
     
     # Split content into lines
     lines = content.split('\n')
-    current_section = None
     
     for line in lines:
         if not line.strip():
-            doc.add_paragraph()  # Add space for empty lines
+            if doc.paragraphs[-1].text.strip() != "":  # Only add space if previous line wasn't empty
+                doc.add_paragraph()  # Single space between sections
             continue
             
         line = line.strip()
         
         # Handle Meeting Title
-        if line.startswith('Meeting Title:'):
-            h = doc.add_heading(line, level=1)
+        if line.startswith('# Meeting Title:'):
+            h = doc.add_heading(line.replace('# Meeting Title:', 'Meeting Title:').strip(), level=1)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-            doc.add_paragraph()  # Add space after title
         
-        # Handle main sections (Meeting Notes Summary, Attendees, Key Points Discussed)
+        # Handle main sections
         elif line in ['Meeting Notes Summary', 'Attendees', 'Key Points Discussed']:
             h = doc.add_heading(line, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-            current_section = line
-            doc.add_paragraph()  # Add space after section header
         
-        # Handle H3 headers (starting with ###)
-        elif line.startswith('### '):
-            h = doc.add_heading(line.replace('### ', ''), level=3)
-            h.style.font.color.rgb = RGBColor(0, 51, 102)
+        # Handle H3 headers (main topics under Key Points Discussed)
+        elif not line.startswith('•') and line not in ['---']:
+            if line.strip() and not line.startswith('#'):
+                h = doc.add_heading(line, level=3)
+                h.style.font.color.rgb = RGBColor(0, 51, 102)
         
-        # Handle bullet points with bold sections
+        # Handle bullet points
         elif line.startswith('•'):
             text = line.replace('•', '').strip()
             p = doc.add_paragraph()
@@ -58,15 +56,18 @@ def create_formatted_doc(title, content):
             else:
                 p.add_run(text)
             
-            # Apply bullet style
             p.style = 'List Bullet'
-            
+        
+        # Handle horizontal line
+        elif line == '---':
+            doc.add_paragraph('_' * 50)
+        
         # Regular paragraphs
         else:
-            p = doc.add_paragraph(line)
+            doc.add_paragraph(line)
     
     return doc
-
+    
 def process_text(text, detail_level, api_key):
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -74,31 +75,37 @@ def process_text(text, detail_level, api_key):
     }
     
     prompt = f"""Please analyze these meeting notes and organize them with the following structure:
-    Meeting Title: [Clear, descriptive title]
-
-    Meeting Notes Summary
-    [Concise overview paragraph]
-
-    Attendees
-    • [Name]
-    • [Name]
-
-    Key Points Discussed
-
-    ### [Main Topic]
-    • **[Subtopic]**
-    • [Detail points]
-    • [Additional details]
-
-    Guidelines:
-    - Include blank lines between sections
-    - Use ### for main topics under Key Points Discussed
-    - Use • for bullet points
-    - Use **text** for emphasis in bullet points
-    - Provide {detail_level} level of detail
-
-    Meeting Notes:
-    {text}"""
+        # Meeting Title: [Clear, descriptive title]
+    
+        Meeting Notes Summary
+        [Concise overview paragraph]
+    
+        Attendees
+        • [Name]
+        • [Name]
+    
+        Key Points Discussed
+    
+        [Main Topic]
+        • [Subtopic]
+        • [Detail points]
+    
+        [Next Main Topic]
+        • [Subtopic]
+        • [Detail points]
+    
+        ---
+    
+        Guidelines:
+        - Use single line breaks between sections
+        - Main topics should be headers (not bullet points)
+        - Use • for bullet points
+        - Use **text** for emphasis in bullet points
+        - Provide {detail_level} level of detail
+        - End with horizontal line (---)
+    
+        Meeting Notes:
+        {text}"""
     
     try:
         response = requests.post(

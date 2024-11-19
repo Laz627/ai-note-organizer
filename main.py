@@ -6,6 +6,8 @@ from datetime import datetime
 import os
 import requests
 from docx.shared import RGBColor  # Add this import
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.shared import Pt
 
 def create_formatted_doc(title, content):
     doc = Document()
@@ -14,36 +16,53 @@ def create_formatted_doc(title, content):
     
     # Split content into lines
     lines = content.split('\n')
-    current_level = 0
+    in_bullet_list = False
     
     for line in lines:
         # Skip empty lines
         if not line.strip():
             continue
             
-        # Determine heading level
-        if line.startswith('####'):
-            heading = line.replace('####', '').strip()
-            h = doc.add_heading(heading, level=4)
+        # Clean up the line
+        line = line.strip()
+        
+        # Handle headings
+        if line.startswith('Meeting Title:'):
+            h = doc.add_heading(line, level=1)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line.startswith('###'):
-            heading = line.replace('###', '').strip()
-            h = doc.add_heading(heading, level=3)
+        elif line == 'Meeting Notes Summary':
+            h = doc.add_heading(line, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line.startswith('##'):
-            heading = line.replace('##', '').strip()
-            h = doc.add_heading(heading, level=2)
+        elif line in ['Attendees', 'Key Points Discussed']:
+            h = doc.add_heading(line, level=2)
             h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line.startswith('#'):
-            heading = line.replace('#', '').strip()
-            h = doc.add_heading(heading, level=1)
-            h.style.font.color.rgb = RGBColor(0, 51, 102)
-        elif line.startswith('-'):
-            # Handle bullet points
-            doc.add_paragraph(line.strip(), style='List Bullet')
+        elif line.startswith('•	-') or line.startswith('- '):
+            # Handle bullet points, removing redundant markers
+            clean_line = line.replace('•	-', '').replace('- ', '').strip()
+            
+            # Check for bold text
+            if '**' in clean_line:
+                p = doc.add_paragraph(style='List Bullet')
+                parts = clean_line.split('**')
+                for i, part in enumerate(parts):
+                    if i % 2 == 1:  # This is text that should be bold
+                        p.add_run(part).bold = True
+                    else:
+                        p.add_run(part)
+            else:
+                doc.add_paragraph(clean_line, style='List Bullet')
         else:
             # Regular paragraph
-            doc.add_paragraph(line.strip())
+            if '**' in line:
+                p = doc.add_paragraph()
+                parts = line.split('**')
+                for i, part in enumerate(parts):
+                    if i % 2 == 1:  # This is text that should be bold
+                        p.add_run(part).bold = True
+                    else:
+                        p.add_run(part)
+            else:
+                doc.add_paragraph(line)
     
     return doc
 
@@ -54,17 +73,18 @@ def process_text(text, detail_level, api_key):
     }
     
     prompt = f"""Please analyze these meeting notes and organize them with the following structure:
-    # Meeting Title
-    ## Meeting Notes Summary
-    ### Attendees (if present)
-    ### Key Points Discussed
-    #### [Specific Topics]
+    Meeting Title: [Title]
+    Meeting Notes Summary
+    [Brief overview of the meeting]
     
-    Include:
-    - Action items and their owners (if present)
-    - Clear structure with appropriate headings
-    - {detail_level} level of detail
-    - Bullet points for key items
+    Attendees
+    [List attendees with bullet points]
+    
+    Key Points Discussed
+    [Main discussion points with bullet points]
+    
+    Use bullet points (•) for lists
+    Use **text** for emphasis/headers within bullet points
     
     Meeting Notes:
     {text}"""
@@ -76,7 +96,7 @@ def process_text(text, detail_level, api_key):
             json={
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "You are a professional meeting notes organizer. Format the notes using markdown headings (# for H1, ## for H2, etc.) and bullet points (-) for lists."},
+                    {"role": "system", "content": "You are a professional meeting notes organizer. Format the notes clearly with proper headings and bullet points. Use **text** for emphasis."},
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.7,
